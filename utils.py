@@ -9,6 +9,9 @@ MATERII = 'Materii'
 PROFESORI = 'Profesori'
 SALI = 'Sali'
 
+CAPACITY = 'Capacitate'
+CONSTRAINTS = 'Constrangeri'
+
 
 ##################### FUNCTII #####################
 
