@@ -72,6 +72,21 @@ class State:
                                                                    problem_specs.classrooms.size, 2), -1, dtype=int32)
         self.students_left : ndarray[int] = array([course.nr_students for course in problem_specs.courses], dtype=int32)
 
+def print_state(state : State, problem_specs : Problem_Specs):
+    time_table = {}
+    for day_idx, day_name in enumerate(problem_specs.days_names):
+        time_table[day_name] = {}
+        for interval_idx, interval_name in enumerate(problem_specs.interval_names):
+            interval = tuple([int(hour) for hour in interval_name.strip('()').split(', ')])
+            time_table[day_name][interval] = {}
+            for classroom_idx, classroom in enumerate(problem_specs.classrooms):
+                time_table[day_name][interval][classroom.name] = {}
+                if state.slots[day_idx][interval_idx][classroom_idx][PROFESSOR] != -1:
+                    time_table[day_name][interval][classroom.name] = (problem_specs.professors[state.slots[day_idx][interval_idx][classroom_idx][PROFESSOR]].name,
+                                                                           problem_specs.courses[state.slots[day_idx][interval_idx][classroom_idx][CLASSROOM]].name)
+                    
+    print(u.pretty_print_timetable_aux_zile(time_table))
+
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('path_file', type=str, help='The path of the file containing the problem', action='store')
@@ -83,4 +98,4 @@ if __name__ == '__main__':
     
     initial_state = State(problem_specs)
 
-    print(timetable_specs)
+    print_state(initial_state, problem_specs)
