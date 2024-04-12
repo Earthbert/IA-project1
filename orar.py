@@ -1,7 +1,8 @@
 from argparse import ArgumentParser
 import re
-from numpy import array
+import numpy as np
 import utils as u
+from copy import deepcopy
 
 class _course:
     def __init__(self, name : str, nr_students : int):
@@ -21,8 +22,8 @@ class _professor:
         self._parse_constraints(professor_entry[u.CONSTRAINTS], interval_names, days_names)
         
     def _parse_constraints(self, constraints : list[str], interval_names : dict[int, str], days_names : dict[int, str]):
-        self.hours_constraints : array[int] = array([0 for _ in range(len(interval_names))])
-        self.days_constraints : array[int] = array([0 for _ in range(len(days_names))])
+        self.hours_constraints : list[int] = [0 for _ in range(len(interval_names))]
+        self.days_constraints : list[int] = [0 for _ in range(len(days_names))]
         self.pause_constraints : int = 0
         for constraint in constraints:
             if constraint[0] == '!':
@@ -59,6 +60,15 @@ class Problem_Specs:
         self.professors : list[_professor] = [_professor(name, professor_entry, self.courses, self.interval_names, self.days_names) 
                                               for (name, professor_entry) in timetable_specs[u.PROFESORI].items()]
 
+class State:
+    def __init__(self, problem_specs : Problem_Specs):
+        self.slots = [[[None for _ in range(len(problem_specs.classrooms))]
+                       for _ in range(len(problem_specs.interval_names))]
+                      for _ in range(len(problem_specs.days_names))]
+        
+        self.students_left = [course.nr_students for course in problem_specs.courses]
+
+
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('path_file', type=str, help='The path of the file containing the problem', action='store')
@@ -67,3 +77,7 @@ if __name__ == '__main__':
 
     timetable_specs = u.read_yaml_file(args.path_file)
     problem_specs = Problem_Specs(timetable_specs)
+    
+    inital_state = State(problem_specs)
+        
+    print(timetable_specs)
