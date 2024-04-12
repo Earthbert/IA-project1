@@ -5,25 +5,25 @@ import utils as u
 from copy import deepcopy
 from numpy import array, int32, where, full, ndarray
 
-class _course:
+class Course:
     def __init__(self, name : str, nr_students : int):
         self.name : str = name
         self.nr_students : int = nr_students
 
-class _classroom:
-    def __init__(self, name : str, classroom_entry : dict, courses : ndarray[_course]):
+class Classroom:
+    def __init__(self, name : str, classroom_entry : dict, courses : ndarray[Course]):
         self.name : str = name
         self.capacity : int = classroom_entry[u.CAPACITY]
         self.courses : ndarray[int] = array(i for i, course in enumerate(courses) if course.name in classroom_entry[u.MATERII])
 
-class _professor:
-    def __init__(self, name : str, professor_entry : dict, courses : ndarray[_course],
+class Professor:
+    def __init__(self, name : str, professor_entry : dict, courses : ndarray[Course],
                  interval_names : ndarray[str], days_names : ndarray[str]):
         self.name : str = name
         self.courses : ndarray[int] = array([i for i, course in enumerate(courses) if course.name in professor_entry[u.MATERII]])
-        self._parse_constraints(professor_entry[u.CONSTRAINTS], interval_names, days_names)
+        self.parse_constraints(professor_entry[u.CONSTRAINTS], interval_names, days_names)
         
-    def _parse_constraints(self, constraints : list[str], interval_names : ndarray[str], days_names : ndarray[str]):
+    def parse_constraints(self, constraints : list[str], interval_names : ndarray[str], days_names : ndarray[str]):
         self.hours_constraints : ndarray[int] = full(interval_names.size, 0, dtype=int32)
         self.days_constraints : ndarray[int] = full(days_names.size, 0, dtype=int32)
         self.pause_constraints : int = 0
@@ -56,10 +56,10 @@ class Problem_Specs:
     def __init__(self, timetable_specs):
         self.interval_names : ndarray[str] = array([name for name in timetable_specs[u.INTERVALE]])
         self.days_names : ndarray[str] = array([name for name in timetable_specs[u.ZILE]])
-        self.courses : ndarray[_course] = array([_course(name, nr_students) for name, nr_students in timetable_specs[u.MATERII].items()])
-        self.classrooms : ndarray[_classroom] = array([_classroom(name, classroom_entry, self.courses)
+        self.courses : ndarray[Course] = array([Course(name, nr_students) for name, nr_students in timetable_specs[u.MATERII].items()])
+        self.classrooms : ndarray[Classroom] = array([Classroom(name, classroom_entry, self.courses)
                                               for (name, classroom_entry) in timetable_specs[u.SALI].items()])
-        self.professors : ndarray[_professor] = array([_professor(name, professor_entry, self.courses, self.interval_names, self.days_names) 
+        self.professors : ndarray[Professor] = array([Professor(name, professor_entry, self.courses, self.interval_names, self.days_names) 
                                               for (name, professor_entry) in timetable_specs[u.PROFESORI].items()])
 
 class State:
