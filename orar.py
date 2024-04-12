@@ -3,7 +3,10 @@ import re
 
 import utils as u
 from copy import deepcopy
-from numpy import array, int32, where, full, ndarray
+from numpy import array, dtype, int32, where, full, ndarray
+
+PROFESSOR = 0
+CLASSROOM = 1
 
 class Course:
     def __init__(self, name : str, nr_students : int):
@@ -64,9 +67,9 @@ class Problem_Specs:
 
 class State:
     def __init__(self, problem_specs : Problem_Specs):
-        self.slots : ndarray[ndarray[ndarray[int]]] = full((problem_specs.days_names.size,
-                                                      problem_specs.interval_names.size,
-                                                      problem_specs.classrooms.size), -1, dtype=int32)
+        self.slots : ndarray[ndarray[ndarray[(int, int)]]] = full((problem_specs.days_names.size,
+                                                                   problem_specs.interval_names.size,
+                                                                   problem_specs.classrooms.size, 2), -1, dtype=int32)
         self.students_left : ndarray[int] = array([course.nr_students for course in problem_specs.courses], dtype=int32)
 
 if __name__ == '__main__':
@@ -78,6 +81,6 @@ if __name__ == '__main__':
     timetable_specs = u.read_yaml_file(args.path_file)
     problem_specs = Problem_Specs(timetable_specs)
     
-    intial_state = State(problem_specs)
+    initial_state = State(problem_specs)
 
     print(timetable_specs)
