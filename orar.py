@@ -95,6 +95,7 @@ class State:
         self.slots : ndarray[ndarray[ndarray[(int, int)]]] = deepcopy(state.slots)
         self.students_left : ndarray[int] = deepcopy(state.students_left)
         self.cost : int = state.cost
+        self.professors_left : ndarray[int] = deepcopy(state.professors_left)
 
 
     def __init__(self, *args):
@@ -154,6 +155,7 @@ def generate_all_possible_states(current_state : State, problem_specs : Problem_
                                     new_state.slots[day_idx][interval_idx][classroom_idx][CLASSROOM] = course_idx
                                     new_state.students_left[course_idx] -= problem_specs.classrooms[classroom_idx].capacity
                                     new_state.cost += _compute_penalty(problem_specs, day_idx, interval_idx, prof_index)
+                                    new_state.professors_left[prof_index] -= 1
                                     possible_states.append(new_state)
     return possible_states
 
