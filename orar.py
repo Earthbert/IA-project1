@@ -64,6 +64,9 @@ class Professor:
                 else:
                     print(f'Invalid pause constraint {constraint}. Ignoring...')
 
+        if (0 in self.hours_constraints or 0 in self.days_constraints):
+            raise ValueError('Invalid constraints')
+
 
 class Problem_Specs:
     def __init__(self, timetable_specs):
@@ -88,7 +91,7 @@ class State:
                                                                    problem_specs.classrooms.size, 2), -1, dtype=int32)
         self.students_left : ndarray[int] = array([course.nr_students for course in problem_specs.courses], dtype=int32)
         self.professors_left : ndarray[int] = full(problem_specs.professors.size, 7, dtype=int32)
-        self.cost : int = 0
+        self.cost : float = 0
 
 
     def _init_from_state(self, state : 'State'):
@@ -127,13 +130,10 @@ def print_state(state : State, problem_specs : Problem_Specs):
     print(u.pretty_print_timetable_aux_zile(time_table))
 
 
-def _compute_penalty(problem_specs : Problem_Specs, day_idx : int, interval_idx : int, prof_index : int) -> int:
+def _compute_penalty(problem_specs : Problem_Specs, day_idx : int, interval_idx : int, prof_index : int) -> float:
     if (problem_specs.professors[prof_index].days_constraints[day_idx] == -1 or
         problem_specs.professors[prof_index].hours_constraints[interval_idx] == -1):
-        return 100
-    if (problem_specs.professors[prof_index].days_constraints[day_idx] == 0 or
-        problem_specs.professors[prof_index].hours_constraints[interval_idx] == 0):
-        return 50
+        return 1
     return 0
 
 
@@ -161,11 +161,7 @@ def generate_all_possible_states(current_state : State, problem_specs : Problem_
 
 
 def compute_cost(state : State, problem_specs : Problem_Specs) -> float:
-    total_students = problem_specs.total_students
-    remaining_students = state.students_left.sum()
-    if (total_students - remaining_students) == 0:
-        return 0
-    return ((remaining_students * state.cost) / (total_students - remaining_students))
+    return sum(state.students_left) / problem_specs.total_students
 
 
 def is_final_state(state : State) -> bool:
@@ -178,7 +174,7 @@ def astar(start : State, problem_specs : Problem_Specs, h : callable = compute_c
     heappush(frontier, (h(start, problem_specs), start))
 
     iterations = 0
-    
+
     while frontier:
         [_, node] = heappop(frontier)
         iterations += 1
