@@ -3,21 +3,28 @@ import re
 
 import utils as u
 from copy import deepcopy
-from numpy import array, dtype, int32, where, full, ndarray
+from numpy import array, int32, where, full, ndarray
+from numpy import ndarray, array, full, where, int32
+import re
+from copy import deepcopy
+
 
 PROFESSOR = 0
 CLASSROOM = 1
+
 
 class Course:
     def __init__(self, name : str, nr_students : int):
         self.name : str = name
         self.nr_students : int = nr_students
 
+
 class Classroom:
     def __init__(self, name : str, classroom_entry : dict, courses : ndarray[Course]):
         self.name : str = name
         self.capacity : int = classroom_entry[u.CAPACITY]
-        self.courses : ndarray[int] = array(i for i, course in enumerate(courses) if course.name in classroom_entry[u.MATERII])
+        self.courses : ndarray[int] = array([i for i, course in enumerate(courses) if course.name in classroom_entry[u.MATERII]])
+
 
 class Professor:
     def __init__(self, name : str, professor_entry : dict, courses : ndarray[Course],
@@ -25,7 +32,8 @@ class Professor:
         self.name : str = name
         self.courses : ndarray[int] = array([i for i, course in enumerate(courses) if course.name in professor_entry[u.MATERII]])
         self.parse_constraints(professor_entry[u.CONSTRAINTS], interval_names, days_names)
-        
+
+
     def parse_constraints(self, constraints : list[str], interval_names : ndarray[str], days_names : ndarray[str]):
         self.hours_constraints : ndarray[int] = full(interval_names.size, 0, dtype=int32)
         self.days_constraints : ndarray[int] = full(days_names.size, 0, dtype=int32)
@@ -55,6 +63,7 @@ class Professor:
                 else:
                     print(f'Invalid pause constraint {constraint}. Ignoring...')
 
+
 class Problem_Specs:
     def __init__(self, timetable_specs):
         self.interval_names : ndarray[str] = array([name for name in timetable_specs[u.INTERVALE]])
@@ -64,13 +73,35 @@ class Problem_Specs:
                                               for (name, classroom_entry) in timetable_specs[u.SALI].items()])
         self.professors : ndarray[Professor] = array([Professor(name, professor_entry, self.courses, self.interval_names, self.days_names) 
                                               for (name, professor_entry) in timetable_specs[u.PROFESORI].items()])
+        self.professors_per_course : ndarray[ndarray[int]] = full((self.courses.size, self.professors.size), False, dtype=bool)
+        for i, professor in enumerate(self.professors):
+            for course in professor.courses:
+                self.professors_per_course[course][i] = True
+
 
 class State:
-    def __init__(self, problem_specs : Problem_Specs):
+    def _init_from_problem_specs(self, problem_specs : Problem_Specs):
         self.slots : ndarray[ndarray[ndarray[(int, int)]]] = full((problem_specs.days_names.size,
                                                                    problem_specs.interval_names.size,
                                                                    problem_specs.classrooms.size, 2), -1, dtype=int32)
         self.students_left : ndarray[int] = array([course.nr_students for course in problem_specs.courses], dtype=int32)
+        self.cost : int = 0
+
+
+    def _init_from_state(self, state : 'State'):
+        self.slots : ndarray[ndarray[ndarray[(int, int)]]] = deepcopy(state.slots)
+        self.students_left : ndarray[int] = deepcopy(state.students_left)
+        self.cost : int = state.cost
+
+
+    def __init__(self, *args):
+        if len(args) != 1:
+            raise ValueError('Invalid number of arguments')
+        if isinstance(args[0], Problem_Specs):
+            self._init_from_problem_specs(*args)
+        elif isinstance(args[0], State):
+            self._init_from_state(*args)
+
 
 def print_state(state : State, problem_specs : Problem_Specs):
     time_table = {}
@@ -87,6 +118,38 @@ def print_state(state : State, problem_specs : Problem_Specs):
                     
     print(u.pretty_print_timetable_aux_zile(time_table))
 
+
+def _compute_penalty(problem_specs : Problem_Specs, day_idx : int, interval_idx : int, prof_index : int) -> int:
+    if (problem_specs.professors[prof_index].days_constraints[day_idx] == -1 or
+        problem_specs.professors[prof_index].hours_constraints[interval_idx] == -1):
+        return 10
+    if (problem_specs.professors[prof_index].days_constraints[day_idx] == 0 or
+        problem_specs.professors[prof_index].hours_constraints[interval_idx] == 0):
+        return 5
+    return 1
+
+
+def generate_all_possible_states(current_state : State, problem_specs : Problem_Specs) -> list[State]:
+    possible_states : list[State] = []
+    for day_idx in range(problem_specs.days_names.size):
+        for interval_idx in range(problem_specs.interval_names.size):
+            for classroom_idx in range(problem_specs.classrooms.size):
+                if current_state.slots[day_idx][interval_idx][classroom_idx][PROFESSOR] == -1:
+                    for course_idx in range(problem_specs.courses.size):
+                        if current_state.students_left[course_idx] > 0 and course_idx in problem_specs.classrooms[classroom_idx].courses:
+                            for prof_index, _ in enumerate(problem_specs.professors_per_course[course_idx]):
+                                if (not any([prof_index == current_state.slots[day_idx][interval_idx][i][PROFESSOR] 
+                                            for i, _ in enumerate(problem_specs.classrooms)])
+                                    and course_idx in problem_specs.professors[prof_index].courses):
+                                    new_state = State(current_state)
+                                    new_state.slots[day_idx][interval_idx][classroom_idx][PROFESSOR] = prof_index
+                                    new_state.slots[day_idx][interval_idx][classroom_idx][CLASSROOM] = course_idx
+                                    new_state.students_left[course_idx] -= problem_specs.classrooms[classroom_idx].capacity
+                                    new_state.cost += _compute_penalty(problem_specs, day_idx, interval_idx, prof_index)
+                                    possible_states.append(new_state)
+    return possible_states
+
+
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('path_file', type=str, help='The path of the file containing the problem', action='store')
@@ -98,4 +161,7 @@ if __name__ == '__main__':
     
     initial_state = State(problem_specs)
 
+    next_states = generate_all_possible_states(initial_state, problem_specs)
+
     print_state(initial_state, problem_specs)
+
