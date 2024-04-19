@@ -7,6 +7,7 @@ from numpy import array, int32, where, full, ndarray
 from numpy import ndarray, array, full, where, int32
 import re
 from copy import deepcopy
+from heapq import heappush, heappop
 
 
 PROFESSOR = 0
@@ -77,6 +78,7 @@ class Problem_Specs:
         for i, professor in enumerate(self.professors):
             for course in professor.courses:
                 self.professors_per_course[course][i] = True
+        self.total_students : int = sum([course.nr_students for course in self.courses])
 
 
 class State:
@@ -103,6 +105,10 @@ class State:
             self._init_from_state(*args)
 
 
+    def __lt__(self, other : 'State') -> bool:
+        return self.students_left.sum() < other.students_left.sum()
+
+
 def print_state(state : State, problem_specs : Problem_Specs):
     time_table = {}
     for day_idx, day_name in enumerate(problem_specs.days_names):
@@ -122,11 +128,11 @@ def print_state(state : State, problem_specs : Problem_Specs):
 def _compute_penalty(problem_specs : Problem_Specs, day_idx : int, interval_idx : int, prof_index : int) -> int:
     if (problem_specs.professors[prof_index].days_constraints[day_idx] == -1 or
         problem_specs.professors[prof_index].hours_constraints[interval_idx] == -1):
-        return 10
+        return 100
     if (problem_specs.professors[prof_index].days_constraints[day_idx] == 0 or
         problem_specs.professors[prof_index].hours_constraints[interval_idx] == 0):
-        return 5
-    return 1
+        return 50
+    return 0
 
 
 def generate_all_possible_states(current_state : State, problem_specs : Problem_Specs) -> list[State]:
@@ -150,6 +156,38 @@ def generate_all_possible_states(current_state : State, problem_specs : Problem_
     return possible_states
 
 
+def compute_cost(state : State, problem_specs : Problem_Specs) -> float:
+    total_students = problem_specs.total_students
+    remaining_students = state.students_left.sum()
+    if (total_students - remaining_students) == 0:
+        return 0
+    return ((remaining_students * state.cost) / (total_students - remaining_students))
+
+
+def is_final_state(state : State) -> bool:
+    return state.students_left.sum() == 0
+
+
+def astar(start : State, problem_specs : Problem_Specs, h : callable = compute_cost,
+          compute_neightbours : callable = generate_all_possible_states, is_final : callable = is_final_state) -> State:
+    frontier = []
+    heappush(frontier, (h(start, problem_specs), start))
+
+    iterations = 0
+    
+    while frontier:
+        [_, node] = heappop(frontier)
+        iterations += 1
+        if is_final(node):
+            break
+        neighbours = compute_neightbours(node, problem_specs)
+        for neighbour in neighbours:
+            heappush(frontier, (neighbour.cost + h(neighbour, problem_specs), neighbour))
+
+    print(f'Iterations: {iterations}')
+    return node
+
+
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('path_file', type=str, help='The path of the file containing the problem', action='store')
@@ -161,7 +199,8 @@ if __name__ == '__main__':
     
     initial_state = State(problem_specs)
 
-    next_states = generate_all_possible_states(initial_state, problem_specs)
-
-    print_state(initial_state, problem_specs)
-
+    if args.algorithm == 'astar':
+        final_state = astar(initial_state, problem_specs)
+        print_state(final_state, problem_specs)
+    else:
+        print('Not implemented')
