@@ -87,6 +87,7 @@ class State:
                                                                    problem_specs.interval_names.size,
                                                                    problem_specs.classrooms.size, 2), -1, dtype=int32)
         self.students_left : ndarray[int] = array([course.nr_students for course in problem_specs.courses], dtype=int32)
+        self.professors_left : ndarray[int] = full(problem_specs.professors.size, 7, dtype=int32)
         self.cost : int = 0
 
 
@@ -146,7 +147,8 @@ def generate_all_possible_states(current_state : State, problem_specs : Problem_
                             for prof_index, _ in enumerate(problem_specs.professors_per_course[course_idx]):
                                 if (not any([prof_index == current_state.slots[day_idx][interval_idx][i][PROFESSOR] 
                                             for i, _ in enumerate(problem_specs.classrooms)])
-                                    and course_idx in problem_specs.professors[prof_index].courses):
+                                    and course_idx in problem_specs.professors[prof_index].courses
+                                    and current_state.professors_left[prof_index] > 0):
                                     new_state = State(current_state)
                                     new_state.slots[day_idx][interval_idx][classroom_idx][PROFESSOR] = prof_index
                                     new_state.slots[day_idx][interval_idx][classroom_idx][CLASSROOM] = course_idx
