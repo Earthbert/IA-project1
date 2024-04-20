@@ -210,7 +210,7 @@ if __name__ == '__main__':
     name = sys.argv[1]
 
     input_name = f'inputs/{name}.yaml'
-    output_name = f'astar_outputs/{name}.txt' # change to hc_outputs or astar_outputs
+    output_name = f'hc_outputs/{name}.txt' # change to hc_outputs or astar_outputs
 
     timetable_specs = read_yaml_file(input_name)
 
