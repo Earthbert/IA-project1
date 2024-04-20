@@ -3,16 +3,17 @@ import re
 
 import utils as u
 from copy import deepcopy
-from numpy import array, int32, where, full, ndarray
-from numpy import ndarray, array, full, where, int32
+from numpy import append, array, int32, where, full, ndarray
+from numpy import ndarray, array, full, where, int32, std, mean
 import re
 from copy import deepcopy
 from heapq import heappush, heappop
-
+from time import time
 
 PROFESSOR = 0
 CLASSROOM = 1
 
+MAX_HOURS = 7
 
 class Course:
     def __init__(self, name : str, nr_students : int):
@@ -90,7 +91,7 @@ class State:
                                                                    problem_specs.interval_names.size,
                                                                    problem_specs.classrooms.size, 2), -1, dtype=int32)
         self.students_left : ndarray[int] = array([course.nr_students for course in problem_specs.courses], dtype=int32)
-        self.professors_left : ndarray[int] = full(problem_specs.professors.size, 7, dtype=int32)
+        self.professors_left : ndarray[int] = full(problem_specs.professors.size, MAX_HOURS, dtype=int32)
         self.cost : float = 0
 
 
@@ -138,7 +139,7 @@ def _compute_penalty(problem_specs : Problem_Specs, day_idx : int, interval_idx 
 
 
 def generate_all_possible_states(current_state : State, problem_specs : Problem_Specs) -> list[State]:
-    possible_states : list[State] = []
+    possible_states : ndarray[State] = array([], dtype=State)
     for day_idx in range(problem_specs.days_names.size):
         for interval_idx in range(problem_specs.interval_names.size):
             for classroom_idx in range(problem_specs.classrooms.size):
@@ -156,24 +157,68 @@ def generate_all_possible_states(current_state : State, problem_specs : Problem_
                                     new_state.students_left[course_idx] -= problem_specs.classrooms[classroom_idx].capacity
                                     new_state.cost += _compute_penalty(problem_specs, day_idx, interval_idx, prof_index)
                                     new_state.professors_left[prof_index] -= 1
-                                    possible_states.append(new_state)
+                                    possible_states = append(possible_states, new_state)
     return possible_states
 
 
+def compute_professor_workload_balance(state : State, problem_specs : Problem_Specs) -> float:
+    remaning_students : int = state.students_left.sum()
+    balance : float = 0
+    if remaning_students == 0:
+        return 0
+    for course_idx, students in enumerate(state.students_left):
+        professors : ndarray[int] = where(problem_specs.professors_per_course[course_idx])[0]
+        professors_workload : ndarray[int] = array([MAX_HOURS - state.professors_left[prof] for prof in professors])
+        std_dev : float = std(professors_workload)
+        range_dev : float = professors_workload.max() - professors_workload.min()
+        if range_dev == 0:
+            continue
+        balance += (students / remaning_students) * (std_dev / range_dev)
+    return balance
+
+
+def compute_classroom_workload_balance(state : State, problem_specs : Problem_Specs) -> float:
+    remaning_students : int = state.students_left.sum()
+    if remaning_students == 0:
+        return 0
+
+    possible_students_assignment : ndarray[float] = full(problem_specs.courses.size, 0, dtype=float)
+
+    for day_idx in range(problem_specs.days_names.size):
+        for interval_idx in range(problem_specs.interval_names.size):
+            for classroom_idx in range(problem_specs.classrooms.size):
+                if state.slots[day_idx][interval_idx][classroom_idx][PROFESSOR] == -1:
+                    for course in problem_specs.classrooms[classroom_idx].courses:
+                        possible_students_assignment[course] += problem_specs.courses[course].nr_students
+
+    for i, possible_students in enumerate(possible_students_assignment):
+        if state.students_left[i] == 0:
+            possible_students_assignment[i] = 0
+        elif possible_students == 0 and state.students_left[i] > 0:
+            possible_students_assignment[i] = 10
+        else:
+            possible_students_assignment[i] = state.students_left[i] / possible_students
+
+    return mean(possible_students_assignment)
+
+
 def compute_cost(state : State, problem_specs : Problem_Specs) -> float:
-    return sum(state.students_left) / problem_specs.total_students
+    remaning_students_factor : float = state.students_left.sum() / problem_specs.total_students
+    classroom_workload_factor : float = compute_classroom_workload_balance(state, problem_specs)
+    return remaning_students_factor + classroom_workload_factor
 
 
 def is_final_state(state : State) -> bool:
-    return state.students_left.sum() == 0
+    return state.students_left.sum() <= 0
 
 
 def astar(start : State, problem_specs : Problem_Specs, h : callable = compute_cost,
-          compute_neightbours : callable = generate_all_possible_states, is_final : callable = is_final_state) -> State:
+          compute_neightbours : callable = generate_all_possible_states, is_final : callable = is_final_state, print_flag : bool = True) -> State:
     frontier = []
     heappush(frontier, (h(start, problem_specs), start))
 
     iterations = 0
+    states_generated = 0
 
     while frontier:
         [_, node] = heappop(frontier)
@@ -181,10 +226,14 @@ def astar(start : State, problem_specs : Problem_Specs, h : callable = compute_c
         if is_final(node):
             break
         neighbours = compute_neightbours(node, problem_specs)
+        states_generated += neighbours.size
         for neighbour in neighbours:
             heappush(frontier, (neighbour.cost + h(neighbour, problem_specs), neighbour))
 
-    print(f'Iterations: {iterations}')
+    if print_flag:
+        print(f'Iterations: {iterations}')
+        print(f'States generated: {states_generated}')
+
     return node
 
 
@@ -199,8 +248,12 @@ if __name__ == '__main__':
     
     initial_state = State(problem_specs)
 
+    start_time = time()
+
     if args.algorithm == 'astar':
         final_state = astar(initial_state, problem_specs)
         print_state(final_state, problem_specs)
     else:
         print('Not implemented')
+
+    print(f'Execution time: {time() - start_time} seconds')
