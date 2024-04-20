@@ -139,7 +139,8 @@ def generate_all_possible_states(current_state : State, problem_specs : Problem_
                                     new_state = State(current_state)
                                     new_state.slots[day_idx][interval_idx][classroom_idx][PROFESSOR] = prof_index
                                     new_state.slots[day_idx][interval_idx][classroom_idx][CLASSROOM] = course_idx
-                                    new_state.students_left[course_idx] -= problem_specs.classrooms[classroom_idx].capacity
+                                    new_state.students_left[course_idx] = max(new_state.students_left[course_idx] -
+                                                                              problem_specs.classrooms[classroom_idx].capacity, 0)
                                     new_state.cost += _compute_penalty(new_state, problem_specs, day_idx, interval_idx, prof_index)
                                     new_state.professors_left[prof_index] -= 1
                                     possible_states = append(possible_states, new_state)
@@ -194,7 +195,7 @@ def compute_cost(state : State, problem_specs : Problem_Specs) -> float:
 
 
 def is_final_state(state : State) -> bool:
-    return state.students_left.sum() <= 0
+    return state.students_left.sum() == 0
 
 
 def astar(start : State, problem_specs : Problem_Specs, h : callable = compute_cost,
@@ -252,7 +253,7 @@ if __name__ == '__main__':
     start_time = time()
 
     if args.algorithm == 'astar':
-        final_state = astar(initial_state, problem_specs)
+        final_state = astar(initial_state, problem_specs, print_flag=False)
         print_state(final_state, problem_specs, args.path_file)
     else:
         print('Not implemented')
