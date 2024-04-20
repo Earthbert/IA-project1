@@ -250,12 +250,6 @@ def hill_climbing(initial: State, problem_specs : Problem_Specs, h : callable = 
         if is_final(current_state):
             break
 
-    if print_flag:
-        if is_final(current_state):
-            print('Final state found')
-        print(f'Iterations: {iterations}')
-        print(f'States generated: {states_generated}')
-
     return is_final(current_state), current_state, iterations, states_generated
 
 
@@ -277,6 +271,12 @@ def try_hill_climbing(initial: State, problem_specs : Problem_Specs, max_tries :
             break
         elif best_state is None or state.cost < best_state.cost:
             best_state = state
+
+    if print_flag:
+        if not is_final_state(best_state):
+            print('No valid solution found')
+        print(f'Total iterations: {total_iterations}')
+        print(f'Total states generated: {total_states_generated}')
     return best_state
 
 
@@ -310,10 +310,10 @@ if __name__ == '__main__':
     start_time = time()
 
     if args.algorithm == 'astar':
-        final_state = astar(initial_state, problem_specs, print_flag=False)
+        final_state = astar(initial_state, problem_specs)
         print_state(final_state, problem_specs, args.path_file)
     else:
-        final_state = try_hill_climbing(initial_state, problem_specs, print_flag=False)
+        final_state = try_hill_climbing(initial_state, problem_specs)
         print_state(final_state, problem_specs, args.path_file)
 
     print(f'Execution time: {time() - start_time} seconds')
