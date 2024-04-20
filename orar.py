@@ -1,9 +1,10 @@
 from argparse import ArgumentParser
+import random
 import re
 
 import utils as u
 from copy import deepcopy
-from numpy import append, array, int32, where, full, ndarray
+from numpy import append, array, int32, where, full, ndarray, zeros
 from numpy import ndarray, array, full, where, int32, std, mean
 import re
 from copy import deepcopy
@@ -168,7 +169,7 @@ def compute_classroom_workload_balance(state : State, problem_specs : Problem_Sp
     if remaning_students == 0:
         return 0
 
-    possible_students_assignment : ndarray[float] = full(problem_specs.courses.size, 0, dtype=float)
+    possible_students_assignment : ndarray[float] = zeros(problem_specs.courses.size, dtype=float)
 
     for day_idx in range(problem_specs.days_names.size):
         for interval_idx in range(problem_specs.interval_names.size):
@@ -199,7 +200,7 @@ def is_final_state(state : State) -> bool:
 
 
 def astar(start : State, problem_specs : Problem_Specs, h : callable = compute_cost,
-          compute_neightbours : callable = generate_all_possible_states, is_final : callable = is_final_state, print_flag : bool = True) -> State:
+          generate_states : callable = generate_all_possible_states, is_final : callable = is_final_state, print_flag : bool = True) -> State:
     frontier = []
     heappush(frontier, (h(start, problem_specs), start))
 
@@ -211,7 +212,7 @@ def astar(start : State, problem_specs : Problem_Specs, h : callable = compute_c
         iterations += 1
         if is_final(node):
             break
-        neighbours = compute_neightbours(node, problem_specs)
+        neighbours = generate_states(node, problem_specs)
         states_generated += neighbours.size
         for neighbour in neighbours:
             heappush(frontier, (neighbour.cost + h(neighbour, problem_specs), neighbour))
@@ -221,6 +222,62 @@ def astar(start : State, problem_specs : Problem_Specs, h : callable = compute_c
         print(f'States generated: {states_generated}')
 
     return node
+
+
+def hill_climbing(initial: State, problem_specs : Problem_Specs, h : callable = compute_cost,
+                  generate_states : callable = generate_all_possible_states, is_final : callable = is_final_state,
+                  max_iters: int = 100, print_flag : bool = True) -> tuple[bool, State, int, int]:
+    iterations = 0
+    states_generated = 0
+
+    current_state = initial
+
+    while iterations < max_iters:
+        iterations += 1
+
+        cost = current_state.cost + h(current_state, problem_specs)
+        all_states = generate_states(current_state, problem_specs)
+        
+        states_generated += all_states.size
+        
+        sampled_states = random.sample(list(all_states), min(30, all_states.size))
+
+        next_states = [state for state in sampled_states if (state.cost * state.cost + h(state, problem_specs)) < cost]
+
+        if not next_states:
+            break
+        current_state = random.choice(next_states)
+        if is_final(current_state):
+            break
+
+    if print_flag:
+        if is_final(current_state):
+            print('Final state found')
+        print(f'Iterations: {iterations}')
+        print(f'States generated: {states_generated}')
+
+    return is_final(current_state), current_state, iterations, states_generated
+
+
+def try_hill_climbing(initial: State, problem_specs : Problem_Specs, max_tries : int = 100, print_flag : bool = True) -> State:
+    best_state = None
+    
+    total_states_generated = 0
+    total_iterations = 0
+
+    max_hc_iterations = initial.slots.size
+
+    for _ in range(max_tries):
+        final, state, iterations, states_generated = hill_climbing(initial, problem_specs, max_iters=max_hc_iterations, print_flag=print_flag)
+        total_states_generated += states_generated
+        total_iterations += iterations
+        
+        if final:
+            best_state = state
+            break
+        elif best_state is None or state.cost < best_state.cost:
+            best_state = state
+    return best_state
 
 
 def print_state(state : State, problem_specs : Problem_Specs, input_path : str):
@@ -235,7 +292,7 @@ def print_state(state : State, problem_specs : Problem_Specs, input_path : str):
                 if state.slots[day_idx][interval_idx][classroom_idx][PROFESSOR] != -1:
                     time_table[day_name][interval][classroom.name] = (problem_specs.professors[state.slots[day_idx][interval_idx][classroom_idx][PROFESSOR]].name,
                                                                            problem_specs.courses[state.slots[day_idx][interval_idx][classroom_idx][CLASSROOM]].name)
-                    
+
     print(u.pretty_print_timetable_aux_zile(time_table, input_path))
 
 
@@ -256,6 +313,7 @@ if __name__ == '__main__':
         final_state = astar(initial_state, problem_specs, print_flag=False)
         print_state(final_state, problem_specs, args.path_file)
     else:
-        print('Not implemented')
+        final_state = try_hill_climbing(initial_state, problem_specs, print_flag=False)
+        print_state(final_state, problem_specs, args.path_file)
 
     print(f'Execution time: {time() - start_time} seconds')
