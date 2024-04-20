@@ -98,7 +98,7 @@ class State:
     def _init_from_state(self, state : 'State'):
         self.slots : ndarray[ndarray[ndarray[(int, int)]]] = deepcopy(state.slots)
         self.students_left : ndarray[int] = deepcopy(state.students_left)
-        self.cost : int = state.cost
+        self.cost : float = state.cost
         self.professors_left : ndarray[int] = deepcopy(state.professors_left)
 
 
@@ -138,7 +138,7 @@ def _compute_penalty(problem_specs : Problem_Specs, day_idx : int, interval_idx 
     return 0
 
 
-def generate_all_possible_states(current_state : State, problem_specs : Problem_Specs) -> list[State]:
+def generate_all_possible_states(current_state : State, problem_specs : Problem_Specs) -> ndarray[State]:
     possible_states : ndarray[State] = array([], dtype=State)
     for day_idx in range(problem_specs.days_names.size):
         for interval_idx in range(problem_specs.interval_names.size):
@@ -217,8 +217,8 @@ def astar(start : State, problem_specs : Problem_Specs, h : callable = compute_c
     frontier = []
     heappush(frontier, (h(start, problem_specs), start))
 
-    iterations = 0
-    states_generated = 0
+    iterations : int = 0
+    states_generated : int = 0
 
     while frontier:
         [_, node] = heappop(frontier)
