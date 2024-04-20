@@ -115,26 +115,11 @@ class State:
         return self.students_left.sum() < other.students_left.sum()
 
 
-def print_state(state : State, problem_specs : Problem_Specs):
-    time_table = {}
-    for day_idx, day_name in enumerate(problem_specs.days_names):
-        time_table[day_name] = {}
-        for interval_idx, interval_name in enumerate(problem_specs.interval_names):
-            interval = tuple([int(hour) for hour in interval_name.strip('()').split(', ')])
-            time_table[day_name][interval] = {}
-            for classroom_idx, classroom in enumerate(problem_specs.classrooms):
-                time_table[day_name][interval][classroom.name] = {}
-                if state.slots[day_idx][interval_idx][classroom_idx][PROFESSOR] != -1:
-                    time_table[day_name][interval][classroom.name] = (problem_specs.professors[state.slots[day_idx][interval_idx][classroom_idx][PROFESSOR]].name,
-                                                                           problem_specs.courses[state.slots[day_idx][interval_idx][classroom_idx][CLASSROOM]].name)
-                    
-    print(u.pretty_print_timetable_aux_zile(time_table))
-
-
-def _compute_penalty(problem_specs : Problem_Specs, day_idx : int, interval_idx : int, prof_index : int) -> float:
+def _compute_penalty(state : State, problem_specs : Problem_Specs, day_idx : int, interval_idx : int, prof_index : int) -> float:
+    remaning_students : int = state.students_left.sum();
     if (problem_specs.professors[prof_index].days_constraints[day_idx] == -1 or
         problem_specs.professors[prof_index].hours_constraints[interval_idx] == -1):
-        return 1
+        return remaning_students / problem_specs.total_students
     return 0
 
 
@@ -155,7 +140,7 @@ def generate_all_possible_states(current_state : State, problem_specs : Problem_
                                     new_state.slots[day_idx][interval_idx][classroom_idx][PROFESSOR] = prof_index
                                     new_state.slots[day_idx][interval_idx][classroom_idx][CLASSROOM] = course_idx
                                     new_state.students_left[course_idx] -= problem_specs.classrooms[classroom_idx].capacity
-                                    new_state.cost += _compute_penalty(problem_specs, day_idx, interval_idx, prof_index)
+                                    new_state.cost += _compute_penalty(new_state, problem_specs, day_idx, interval_idx, prof_index)
                                     new_state.professors_left[prof_index] -= 1
                                     possible_states = append(possible_states, new_state)
     return possible_states
@@ -237,6 +222,22 @@ def astar(start : State, problem_specs : Problem_Specs, h : callable = compute_c
     return node
 
 
+def print_state(state : State, problem_specs : Problem_Specs, input_path : str):
+    time_table = {}
+    for day_idx, day_name in enumerate(problem_specs.days_names):
+        time_table[day_name] = {}
+        for interval_idx, interval_name in enumerate(problem_specs.interval_names):
+            interval = tuple([int(hour) for hour in interval_name.strip('()').split(', ')])
+            time_table[day_name][interval] = {}
+            for classroom_idx, classroom in enumerate(problem_specs.classrooms):
+                time_table[day_name][interval][classroom.name] = {}
+                if state.slots[day_idx][interval_idx][classroom_idx][PROFESSOR] != -1:
+                    time_table[day_name][interval][classroom.name] = (problem_specs.professors[state.slots[day_idx][interval_idx][classroom_idx][PROFESSOR]].name,
+                                                                           problem_specs.courses[state.slots[day_idx][interval_idx][classroom_idx][CLASSROOM]].name)
+                    
+    print(u.pretty_print_timetable_aux_zile(time_table, input_path))
+
+
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('path_file', type=str, help='The path of the file containing the problem', action='store')
@@ -252,7 +253,7 @@ if __name__ == '__main__':
 
     if args.algorithm == 'astar':
         final_state = astar(initial_state, problem_specs)
-        print_state(final_state, problem_specs)
+        print_state(final_state, problem_specs, args.path_file)
     else:
         print('Not implemented')
 
